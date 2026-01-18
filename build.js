@@ -8,7 +8,7 @@ const filesToCopy = [
   'index.html',
   'style.css',
   'game.js',
-  'manifest.json',
+  'manifest.webmanifest',
   'service-worker.js'
 ];
 

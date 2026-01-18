@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bubble Bobble - Por Ciro</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#15138a">
 </head>
 <body>
@@ -30,9 +30,20 @@
     <!-- Este script carga nuestro código JavaScript -->
     <script src="game.js"></script>
     <script>
+        function obtenerBasePath() {
+            const partes = window.location.pathname.split('/').filter(Boolean);
+            return partes.length ? `/${partes[0]}/` : '/';
+        }
+
+        const basePath = obtenerBasePath();
+        const manifestLink = document.querySelector('link[rel=\"manifest\"]');
+        if (manifestLink) {
+            manifestLink.setAttribute('href', `${basePath}manifest.webmanifest`);
+        }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js');
+                navigator.serviceWorker.register(`${basePath}service-worker.js`, { scope: basePath });
             });
         }
     </script>
