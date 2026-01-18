@@ -555,6 +555,7 @@ function iniciarJuegoSiHaceFalta() {
     if (estadoJuego === 'inicio') {
         inicializarAudio();
         estadoJuego = 'jugando';
+        mostrarReiniciar(false);
     }
 }
 
@@ -563,6 +564,7 @@ function finalizarNombreConPrompt() {
     const nombreFinal = (nombre || '').trim() || 'Anon';
     agregarRecord(nombreFinal, puntuacion);
     estadoJuego = 'gameOver';
+    mostrarReiniciar(true);
 }
 
 function manejarAccionTactil(accion, presionado) {
@@ -581,8 +583,17 @@ function manejarAccionTactil(accion, presionado) {
     }
 }
 
+let botonReiniciar = null;
+
+function mostrarReiniciar(visible) {
+    if (!botonReiniciar) return;
+    botonReiniciar.classList.toggle('oculto', !visible);
+}
+
 const controlesMovil = document.getElementById('controles-movil');
 if (controlesMovil) {
+    botonReiniciar = controlesMovil.querySelector('[data-action=\"restart\"]');
+    mostrarReiniciar(false);
     const botones = controlesMovil.querySelectorAll('[data-action]');
 
     botones.forEach(function(boton) {
@@ -654,6 +665,7 @@ function reiniciarJuego() {
     nivel = 1;
     vidas = 3;
     estadoJuego = 'jugando';
+    mostrarReiniciar(false);
 
     // Limpiar burbujas y frutas
     burbujas.length = 0;
@@ -699,8 +711,10 @@ function activarGameOver() {
         estadoJuego = 'ingresandoNombre';
         nombreJugador = '';
         cursorVisible = true;
+        mostrarReiniciar(false);
     } else {
         estadoJuego = 'gameOver';
+        mostrarReiniciar(true);
     }
 }
 

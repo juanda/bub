@@ -23,41 +23,28 @@ body {
     border: 4px solid #00ff88;
     border-radius: 8px;
     box-shadow: 0 0 20px #00ff8855;
+    width: min(520px, 96vw);
 }
 
 #juego {
     /* El canvas donde dibujamos todo */
     display: block;
     background-color: #15138a;
+    width: 100%;
+    height: auto;
     touch-action: none;
 }
 
 #controles-movil {
     display: none;
     width: min(520px, 96vw);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
     gap: 12px;
-    justify-content: space-between;
-    align-items: stretch;
-}
-
-.grupo-direccion,
-.grupo-acciones {
-    display: flex;
-    gap: 10px;
-}
-
-.grupo-direccion {
-    flex: 1;
-}
-
-.grupo-acciones {
-    flex: 1;
-    justify-content: flex-end;
-    flex-wrap: wrap;
 }
 
 .btn-control {
-    flex: 1;
     padding: 12px 10px;
     font-weight: bold;
     border: 2px solid #00ff88;
@@ -75,19 +62,39 @@ body {
 
 .btn-salto {
     background: #003b6f;
+    grid-column: 2;
+    grid-row: 1;
 }
 
 .btn-burbuja {
     background: #154f2b;
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.btn-izq {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+}
+
+.btn-der {
+    grid-column: 3;
+    grid-row: 1 / span 2;
 }
 
 .btn-reinicio {
     background: #5a1f1f;
     border-color: #ff6666;
+    grid-column: 2;
+    grid-row: 3;
+}
+
+.oculto {
+    display: none;
 }
 
 @media (pointer: coarse), (max-width: 900px) {
     #controles-movil {
-        display: flex;
+        display: grid;
     }
 }
