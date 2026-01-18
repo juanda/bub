@@ -39,7 +39,7 @@ body {
     display: none;
     width: min(520px, 96vw);
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 0.5fr 1fr;
     grid-template-rows: auto auto auto;
     gap: 12px;
 }
@@ -62,13 +62,13 @@ body {
 
 .btn-salto {
     background: #003b6f;
-    grid-column: 2;
+    grid-column: 4;
     grid-row: 1;
 }
 
 .btn-burbuja {
     background: #154f2b;
-    grid-column: 2;
+    grid-column: 4;
     grid-row: 2;
 }
 
@@ -78,14 +78,14 @@ body {
 }
 
 .btn-der {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1 / span 2;
 }
 
 .btn-reinicio {
     background: #5a1f1f;
     border-color: #ff6666;
-    grid-column: 2;
+    grid-column: 4;
     grid-row: 3;
 }
 
