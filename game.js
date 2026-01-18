@@ -548,6 +548,92 @@ document.addEventListener('keyup', function(evento) {
 });
 
 // ===========================================
+// PASO 4.2: Controles tactiles para movil
+// ===========================================
+
+function iniciarJuegoSiHaceFalta() {
+    if (estadoJuego === 'inicio') {
+        inicializarAudio();
+        estadoJuego = 'jugando';
+    }
+}
+
+function finalizarNombreConPrompt() {
+    const nombre = window.prompt('Nuevo record. Escribe tu nombre:');
+    const nombreFinal = (nombre || '').trim() || 'Anon';
+    agregarRecord(nombreFinal, puntuacion);
+    estadoJuego = 'gameOver';
+}
+
+function manejarAccionTactil(accion, presionado) {
+    if (accion === 'left') {
+        teclas.izquierda = presionado;
+    } else if (accion === 'right') {
+        teclas.derecha = presionado;
+    } else if (accion === 'jump') {
+        teclas.arriba = presionado;
+    } else if (accion === 'bubble') {
+        teclas.espacio = presionado;
+    } else if (accion === 'restart' && presionado) {
+        if (estadoJuego === 'gameOver') {
+            reiniciarJuego();
+        }
+    }
+}
+
+const controlesMovil = document.getElementById('controles-movil');
+if (controlesMovil) {
+    const botones = controlesMovil.querySelectorAll('[data-action]');
+
+    botones.forEach(function(boton) {
+        boton.addEventListener('pointerdown', function(evento) {
+            evento.preventDefault();
+            if (evento.pointerType === 'touch') {
+                boton.setPointerCapture(evento.pointerId);
+            }
+
+            if (estadoJuego === 'ingresandoNombre' && evento.pointerType === 'touch') {
+                finalizarNombreConPrompt();
+                return;
+            }
+
+            iniciarJuegoSiHaceFalta();
+            const accion = boton.getAttribute('data-action');
+            manejarAccionTactil(accion, true);
+        });
+
+        boton.addEventListener('pointerup', function(evento) {
+            evento.preventDefault();
+            const accion = boton.getAttribute('data-action');
+            manejarAccionTactil(accion, false);
+        });
+
+        boton.addEventListener('pointercancel', function(evento) {
+            evento.preventDefault();
+            const accion = boton.getAttribute('data-action');
+            manejarAccionTactil(accion, false);
+        });
+
+        boton.addEventListener('pointerout', function(evento) {
+            evento.preventDefault();
+            const accion = boton.getAttribute('data-action');
+            manejarAccionTactil(accion, false);
+        });
+    });
+
+    canvas.addEventListener('pointerdown', function(evento) {
+        if (evento.pointerType === 'touch') {
+            evento.preventDefault();
+            if (estadoJuego === 'ingresandoNombre') {
+                finalizarNombreConPrompt();
+                return;
+            }
+            iniciarJuegoSiHaceFalta();
+        }
+    });
+}
+
+// ===========================================
 // PASO 4.5: Función para reiniciar el juego
 // ===========================================
 

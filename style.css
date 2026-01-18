@@ -9,10 +9,13 @@ body {
 
     /* Centrar el juego en la pantalla */
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
+    gap: 12px;
+    touch-action: none;
 }
 
 #contenedor-juego {
@@ -26,4 +29,65 @@ body {
     /* El canvas donde dibujamos todo */
     display: block;
     background-color: #15138a;
+    touch-action: none;
+}
+
+#controles-movil {
+    display: none;
+    width: min(520px, 96vw);
+    gap: 12px;
+    justify-content: space-between;
+    align-items: stretch;
+}
+
+.grupo-direccion,
+.grupo-acciones {
+    display: flex;
+    gap: 10px;
+}
+
+.grupo-direccion {
+    flex: 1;
+}
+
+.grupo-acciones {
+    flex: 1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.btn-control {
+    flex: 1;
+    padding: 12px 10px;
+    font-weight: bold;
+    border: 2px solid #00ff88;
+    background: #0f0f24;
+    color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px #00000055;
+    touch-action: none;
+}
+
+.btn-control:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 6px #00000055;
+}
+
+.btn-salto {
+    background: #003b6f;
+}
+
+.btn-burbuja {
+    background: #154f2b;
+}
+
+.btn-reinicio {
+    background: #5a1f1f;
+    border-color: #ff6666;
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+    #controles-movil {
+        display: flex;
+    }
 }
