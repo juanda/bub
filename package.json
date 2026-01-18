@@ -1,0 +1,9 @@
+{
+  "name": "bubble-bobble",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run dev-server.js",
+    "build": "bun run build.js"
+  }
+}

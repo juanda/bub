@@ -1,0 +1,22 @@
+{
+  "name": "Bubble Bobble",
+  "short_name": "Bubble",
+  "start_url": "/bubble_bobble/",
+  "scope": "/bubble_bobble/",
+  "display": "standalone",
+  "background_color": "#15138a",
+  "theme_color": "#15138a",
+  "icons": [
+    {
+      "src": "/bubble_bobble/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/bubble_bobble/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

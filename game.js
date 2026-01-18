@@ -1257,6 +1257,20 @@ function dibujar() {
     ctx.fillStyle = bub.color;
     ctx.fillRect(bub.x, bub.y, bub.ancho, bub.alto);
 
+    // Ojos para indicar dirección
+    const ojoY = bub.y + 8;
+    const ojoIzqX = bub.x + 7;
+    const ojoDerX = bub.x + 17;
+    const pupilaOffset = bub.direccion === 1 ? 2 : -2;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(ojoIzqX, ojoY, 6, 6);
+    ctx.fillRect(ojoDerX, ojoY, 6, 6);
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(ojoIzqX + 2 + pupilaOffset, ojoY + 2, 2, 2);
+    ctx.fillRect(ojoDerX + 2 + pupilaOffset, ojoY + 2, 2, 2);
+
     // Dibujar las burbujas
     /*
         Ciro: Para dibujar círculos usamos "arc" (arco).
