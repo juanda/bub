@@ -1,0 +1,29 @@
+/*
+    Ciro: Este es el archivo CSS. Es como elegir el "disfraz" del escenario.
+    Aquí decidimos colores, tamaños y cómo se ve todo.
+*/
+
+body {
+    /* Fondo oscuro como las salas de arcade */
+    background-color: #1a1a2e;
+
+    /* Centrar el juego en la pantalla */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#contenedor-juego {
+    /* Un borde bonito alrededor del juego */
+    border: 4px solid #00ff88;
+    border-radius: 8px;
+    box-shadow: 0 0 20px #00ff8855;
+}
+
+#juego {
+    /* El canvas donde dibujamos todo */
+    display: block;
+    background-color: #15138a;
+}
