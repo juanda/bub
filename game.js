@@ -293,7 +293,7 @@ let enemigos = [];
 // Configuración de enemigos
 const ENEMIGO_VELOCIDAD = 2;
 const ES_MOVIL = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900;
-const MULTIPLICADOR_ENEMIGO = ES_MOVIL ? 0.85 : 1;
+const MULTIPLICADOR_ENEMIGO = ES_MOVIL ? 0.75 : 1;
 
 // Puntuación del jugador
 let puntuacion = 0;
