@@ -467,26 +467,41 @@ function actualizar() {
             Ciro: Si una burbuja toca un enemigo que está "libre",
             lo atrapa. El enemigo pasa a estado "atrapado" y se mueve
             junto con la burbuja.
+
+            ¡IMPORTANTE! Una burbuja solo puede tener UN enemigo.
+            Si ya tiene uno, no puede atrapar más.
         */
-        for (let j = 0; j < enemigos.length; j++) {
-            const enemigo = enemigos[j];
 
-            // Solo podemos atrapar enemigos libres
-            if (enemigo.estado === 'libre') {
-                // Calcular distancia entre burbuja y centro del enemigo
-                const centroEnemigoX = enemigo.x + enemigo.ancho / 2;
-                const centroEnemigoY = enemigo.y + enemigo.alto / 2;
-                const distancia = Math.sqrt(
-                    Math.pow(burbuja.x - centroEnemigoX, 2) +
-                    Math.pow(burbuja.y - centroEnemigoY, 2)
-                );
+        // Solo buscar enemigos si esta burbuja está vacía
+        if (!burbuja.tieneEnemigo) {
+            for (let j = 0; j < enemigos.length; j++) {
+                const enemigo = enemigos[j];
 
-                // Si están lo suficientemente cerca, ¡atrapado!
-                if (distancia < BURBUJA_RADIO + 10) {
-                    enemigo.estado = 'atrapado';
-                    enemigo.burbujaIndex = i;  // Recordar qué burbuja lo atrapó
-                    burbuja.tieneEnemigo = true;
-                    burbuja.enemigoIndex = j;
+                // Solo podemos atrapar enemigos libres
+                if (enemigo.estado === 'libre') {
+                    // Calcular distancia entre burbuja y centro del enemigo
+                    const centroEnemigoX = enemigo.x + enemigo.ancho / 2;
+                    const centroEnemigoY = enemigo.y + enemigo.alto / 2;
+                    const distancia = Math.sqrt(
+                        Math.pow(burbuja.x - centroEnemigoX, 2) +
+                        Math.pow(burbuja.y - centroEnemigoY, 2)
+                    );
+
+                    // Si están lo suficientemente cerca, ¡atrapado!
+                    if (distancia < BURBUJA_RADIO + 10) {
+                        enemigo.estado = 'atrapado';
+                        /*
+                            Ciro: Aquí guardamos una REFERENCIA al objeto, no su índice.
+                            Así no importa si los índices cambian cuando eliminamos enemigos.
+                            Es como guardar el sprite directamente, no su número en la lista.
+                        */
+                        enemigo.burbuja = burbuja;  // El enemigo sabe en qué burbuja está
+                        burbuja.tieneEnemigo = true;
+                        burbuja.enemigo = enemigo;  // La burbuja sabe qué enemigo tiene
+
+                        // ¡Ya atrapamos uno! Salir del bucle (una burbuja = un enemigo)
+                        break;
+                    }
                 }
             }
         }
@@ -502,12 +517,10 @@ function actualizar() {
         // Eliminar burbuja si es muy vieja o sale por arriba
         if (burbuja.edad > duracionMaxima || burbuja.y < -BURBUJA_RADIO) {
             // Si la burbuja tenía un enemigo, lo libera (¡escapa!)
-            if (burbuja.tieneEnemigo) {
-                const enemigo = enemigos[burbuja.enemigoIndex];
-                if (enemigo) {
-                    enemigo.estado = 'libre';
-                    enemigo.velocidadY = 0;  // Resetear velocidad
-                }
+            if (burbuja.tieneEnemigo && burbuja.enemigo) {
+                burbuja.enemigo.estado = 'libre';
+                burbuja.enemigo.velocidadY = 0;  // Resetear velocidad
+                burbuja.enemigo.burbuja = null;  // Ya no está en una burbuja
             }
             // "splice" elimina un elemento del array (como "borrar elemento de lista")
             burbujas.splice(i, 1);
@@ -578,50 +591,56 @@ function actualizar() {
 
         } else if (enemigo.estado === 'atrapado') {
             // --- Enemigo atrapado: sigue a la burbuja ---
-            // Buscar la burbuja que lo tiene
-            for (let j = 0; j < burbujas.length; j++) {
-                const burbuja = burbujas[j];
-                if (burbuja.tieneEnemigo && burbuja.enemigoIndex === i) {
-                    // Mover el enemigo al centro de la burbuja
-                    enemigo.x = burbuja.x - enemigo.ancho / 2;
-                    enemigo.y = burbuja.y - enemigo.alto / 2;
+            /*
+                Ciro: Ahora usamos la REFERENCIA directa enemigo.burbuja
+                en vez de buscar por índice. ¡Mucho más simple y seguro!
+            */
+            const burbuja = enemigo.burbuja;
 
-                    // --- ¿Bub toca la burbuja con enemigo? ¡Explota y sale fruta! ---
-                    const distanciaBub = Math.sqrt(
-                        Math.pow(burbuja.x - (bub.x + bub.ancho / 2), 2) +
-                        Math.pow(burbuja.y - (bub.y + bub.alto / 2), 2)
-                    );
+            if (burbuja) {
+                // Mover el enemigo al centro de la burbuja
+                enemigo.x = burbuja.x - enemigo.ancho / 2;
+                enemigo.y = burbuja.y - enemigo.alto / 2;
 
-                    if (distanciaBub < BURBUJA_RADIO + 20) {
-                        /*
-                            Ciro: Cuando Bub toca una burbuja con enemigo:
-                            1. El enemigo muere
-                            2. Aparece una fruta en esa posición
-                            3. La fruta da puntos si Bub la recoge
-                        */
+                // --- ¿Bub toca la burbuja con enemigo? ¡Explota y sale fruta! ---
+                const distanciaBub = Math.sqrt(
+                    Math.pow(burbuja.x - (bub.x + bub.ancho / 2), 2) +
+                    Math.pow(burbuja.y - (bub.y + bub.alto / 2), 2)
+                );
 
-                        // Crear una fruta en la posición de la burbuja
-                        // El tipo de fruta depende de la oleada (oleadas más altas = mejores frutas)
-                        const indiceFruta = Math.min(oleada - 1, TIPOS_FRUTAS.length - 1);
-                        const tipoFruta = TIPOS_FRUTAS[indiceFruta];
+                if (distanciaBub < BURBUJA_RADIO + 20) {
+                    /*
+                        Ciro: Cuando Bub toca una burbuja con enemigo:
+                        1. El enemigo muere
+                        2. Aparece una fruta en esa posición
+                        3. La fruta da puntos si Bub la recoge
+                    */
 
-                        const nuevaFruta = {
-                            x: burbuja.x - 12,
-                            y: burbuja.y - 12,
-                            ancho: 24,
-                            alto: 24,
-                            velocidadY: 0,
-                            tipo: tipoFruta,
-                            edad: 0  // Para que desaparezca si no la recogen
-                        };
-                        frutas.push(nuevaFruta);
+                    // Crear una fruta en la posición de la burbuja
+                    // El tipo de fruta depende de la oleada (oleadas más altas = mejores frutas)
+                    const indiceFruta = Math.min(oleada - 1, TIPOS_FRUTAS.length - 1);
+                    const tipoFruta = TIPOS_FRUTAS[indiceFruta];
 
-                        // Eliminar enemigo y burbuja
-                        enemigos.splice(i, 1);
-                        burbujas.splice(j, 1);
-                        i--;  // Ajustar índice porque eliminamos un enemigo
-                        break;
+                    const nuevaFruta = {
+                        x: burbuja.x - 12,
+                        y: burbuja.y - 12,
+                        ancho: 24,
+                        alto: 24,
+                        velocidadY: 0,
+                        tipo: tipoFruta,
+                        edad: 0  // Para que desaparezca si no la recogen
+                    };
+                    frutas.push(nuevaFruta);
+
+                    // Eliminar la burbuja del array
+                    const indiceBurbuja = burbujas.indexOf(burbuja);
+                    if (indiceBurbuja !== -1) {
+                        burbujas.splice(indiceBurbuja, 1);
                     }
+
+                    // Eliminar el enemigo del array
+                    enemigos.splice(i, 1);
+                    i--;  // Ajustar índice porque eliminamos un enemigo
                 }
             }
         }
