@@ -292,6 +292,8 @@ let enemigos = [];
 
 // Configuración de enemigos
 const ENEMIGO_VELOCIDAD = 2;
+const ES_MOVIL = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900;
+const MULTIPLICADOR_ENEMIGO = ES_MOVIL ? 0.85 : 1;
 
 // Puntuación del jugador
 let puntuacion = 0;
@@ -436,7 +438,7 @@ function crearNivel(numeroNivel) {
         const direccion = Math.random() < 0.5 ? -1 : 1;
 
         // Velocidad aumenta un poco con cada nivel
-        const velocidad = ENEMIGO_VELOCIDAD + (numeroNivel - 1) * 0.3;
+        const velocidad = (ENEMIGO_VELOCIDAD + (numeroNivel - 1) * 0.3) * MULTIPLICADOR_ENEMIGO;
 
         /*
             Ciro: Algunos enemigos dan vida extra en vez de fruta.
