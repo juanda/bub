@@ -348,6 +348,11 @@ function cargarRecords() {
     const datosGuardados = localStorage.getItem('bubbleBobbleRecords');
     if (datosGuardados) {
         records = JSON.parse(datosGuardados);
+        // Asegurar orden y máximo 3 por si el formato antiguo guardó más
+        records.sort(function(a, b) {
+            return b.puntos - a.puntos;
+        });
+        records = records.slice(0, 3);
     } else {
         // Si no hay récords guardados, empezar con una lista vacía
         records = [];
@@ -478,6 +483,22 @@ const teclas = {
 
 // Cuando el jugador PRESIONA una tecla
 document.addEventListener('keydown', function(evento) {
+    if (estadoJuego === 'ingresandoNombre') {
+        if (evento.key === 'Backspace') {
+            evento.preventDefault();
+            nombreJugador = nombreJugador.slice(0, -1);
+        } else if (evento.key === 'Enter') {
+            const nombreFinal = nombreJugador.trim() || 'Anon';
+            agregarRecord(nombreFinal, puntuacion);
+            estadoJuego = 'gameOver';
+        } else if (evento.key.length === 1 && /[a-zA-Z0-9 ]/.test(evento.key)) {
+            if (nombreJugador.length < 10) {
+                nombreJugador = nombreJugador + evento.key;
+            }
+        }
+        return;
+    }
+
     /*
         Ciro: Si estamos en la pantalla de inicio, cualquier tecla
         comienza el juego. Usamos inicializarAudio() aquí porque
@@ -579,13 +600,32 @@ function hayColision(rect1, rect2) {
 }
 
 // ===========================================
+// PASO 4.7: Manejar Game Over y récords
+// ===========================================
+
+function activarGameOver() {
+    teclas.izquierda = false;
+    teclas.derecha = false;
+    teclas.arriba = false;
+    teclas.espacio = false;
+
+    if (esNuevoRecord(puntuacion)) {
+        estadoJuego = 'ingresandoNombre';
+        nombreJugador = '';
+        cursorVisible = true;
+    } else {
+        estadoJuego = 'gameOver';
+    }
+}
+
+// ===========================================
 // PASO 5: Actualizar el juego (la lógica)
 // ===========================================
 
 // Esta función se ejecuta muchas veces por segundo (como "por siempre" en Scratch)
 function actualizar() {
     // Si estamos en inicio o Game Over, no actualizar nada
-    if (estadoJuego === 'inicio' || estadoJuego === 'gameOver') {
+    if (estadoJuego === 'inicio' || estadoJuego === 'gameOver' || estadoJuego === 'ingresandoNombre') {
         return;  // "return" sale de la función inmediatamente
     }
 
@@ -845,7 +885,7 @@ function actualizar() {
 
                 if (vidas <= 0) {
                     // ¡Game Over!
-                    estadoJuego = 'gameOver';
+                    activarGameOver();
                 } else {
                     // Todavía tiene vidas: volver al inicio
                     bub.x = 100;
@@ -1361,6 +1401,55 @@ function dibujar() {
     ctx.font = '12px Arial';
     ctx.fillText('←→: mover | ↑: saltar | Espacio: burbuja', 10, canvas.height - 10);
 
+    // --- Tabla de récords (Top 3) ---
+    function dibujarRecords(yInicial) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('TOP 3', canvas.width / 2, yInicial);
+
+        if (records.length === 0) {
+            ctx.fillStyle = '#cccccc';
+            ctx.font = '16px Arial';
+            ctx.fillText('Sin récords todavía', canvas.width / 2, yInicial + 24);
+            return;
+        }
+
+        ctx.font = '18px Arial';
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            const texto = (i + 1) + '. ' + record.nombre + ' - ' + record.puntos;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(texto, canvas.width / 2, yInicial + 24 + i * 22);
+        }
+    }
+
+    // --- Pantalla de ingresar nombre (nuevo récord) ---
+    if (estadoJuego === 'ingresandoNombre') {
+        // Fondo oscuro semi-transparente
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 32px Arial';
+        ctx.fillText('¡NUEVO RÉCORD!', canvas.width / 2, canvas.height / 2 - 60);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.fillText('Escribe tu nombre y pulsa Enter', canvas.width / 2, canvas.height / 2 - 25);
+
+        // Cursor parpadeante
+        cursorVisible = Math.sin(Date.now() * 0.008) > 0;
+        const textoNombre = nombreJugador + (cursorVisible ? '_' : '');
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText(textoNombre, canvas.width / 2, canvas.height / 2 + 10);
+
+        dibujarRecords(canvas.height / 2 + 60);
+
+        ctx.textAlign = 'left';
+    }
+
     // --- Pantalla de Game Over ---
     /*
         Ciro: Si el estado es "gameOver", dibujamos un mensaje encima de todo.
@@ -1390,6 +1479,9 @@ function dibujar() {
         ctx.fillStyle = '#ffff00';
         ctx.font = '20px Arial';
         ctx.fillText('Presiona R para reiniciar', canvas.width / 2, canvas.height / 2 + 90);
+
+        // Mostrar Top 3
+        dibujarRecords(canvas.height / 2 + 130);
 
         // Restaurar alineación del texto
         ctx.textAlign = 'left';
