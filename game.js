@@ -16,6 +16,85 @@
 // Obtenemos el canvas (el rectángulo donde vamos a dibujar)
 const canvas = document.getElementById('juego');
 
+// ===========================================
+// PASO 1.5: Sistema de sonidos
+// ===========================================
+
+/*
+    Ciro: Para hacer sonidos en JavaScript usamos la "Web Audio API".
+    Es como tener un sintetizador de música dentro del navegador.
+
+    Un "oscillator" (oscilador) genera ondas de sonido, como cuando
+    silbas o tocas una nota en un piano. Podemos controlar:
+    - La frecuencia (Hz): qué tan agudo o grave es el sonido
+    - El tipo de onda: 'sine' (suave), 'square' (8-bit), 'triangle', 'sawtooth'
+    - La duración: cuánto tiempo suena
+*/
+
+// Crear el contexto de audio (solo se crea una vez)
+let contextoAudio = null;
+
+// Esta función inicializa el audio (hay que hacerlo después de una interacción del usuario)
+function inicializarAudio() {
+    if (!contextoAudio) {
+        contextoAudio = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+/*
+    Ciro: Esta función crea un sonido corto.
+    - frecuencia: número en Hz (más alto = más agudo)
+    - duracion: en segundos
+    - tipo: forma de onda ('square' suena a videojuego retro)
+*/
+function reproducirSonido(frecuencia, duracion, tipo = 'square') {
+    // Si no hay contexto de audio, no hacer nada
+    if (!contextoAudio) return;
+
+    // Crear un oscilador (generador de sonido)
+    const oscilador = contextoAudio.createOscillator();
+    const ganancia = contextoAudio.createGain();  // Control de volumen
+
+    // Configurar el oscilador
+    oscilador.type = tipo;
+    oscilador.frequency.value = frecuencia;
+
+    // Conectar: oscilador -> ganancia -> altavoces
+    oscilador.connect(ganancia);
+    ganancia.connect(contextoAudio.destination);
+
+    // Empezar con volumen y bajar gradualmente (para que no suene cortado)
+    ganancia.gain.setValueAtTime(0.3, contextoAudio.currentTime);
+    ganancia.gain.exponentialRampToValueAtTime(0.01, contextoAudio.currentTime + duracion);
+
+    // ¡Reproducir!
+    oscilador.start(contextoAudio.currentTime);
+    oscilador.stop(contextoAudio.currentTime + duracion);
+}
+
+// Sonido de perder vida: tono descendente (¡ay!)
+function sonidoPerderVida() {
+    inicializarAudio();
+    reproducirSonido(400, 0.1, 'square');
+    setTimeout(() => reproducirSonido(300, 0.1, 'square'), 100);
+    setTimeout(() => reproducirSonido(200, 0.2, 'square'), 200);
+}
+
+// Sonido de atrapar enemigo: tono agudo corto (¡plop!)
+function sonidoAtrapar() {
+    inicializarAudio();
+    reproducirSonido(600, 0.05, 'sine');
+    setTimeout(() => reproducirSonido(900, 0.1, 'sine'), 50);
+}
+
+// Sonido de eliminar enemigo: tono ascendente alegre (¡bien!)
+function sonidoEliminar() {
+    inicializarAudio();
+    reproducirSonido(500, 0.08, 'square');
+    setTimeout(() => reproducirSonido(700, 0.08, 'square'), 80);
+    setTimeout(() => reproducirSonido(900, 0.15, 'square'), 160);
+}
+
 // El "contexto" es como nuestro pincel para dibujar
 const ctx = canvas.getContext('2d');
 
@@ -47,36 +126,102 @@ const VELOCIDAD_MOVIMIENTO = 5;  // Qué tan rápido se mueve Bub
 const FUERZA_SALTO = -12;    // Qué tan alto salta (negativo porque arriba es menos Y)
 const SUELO_Y = 440;         // Dónde está el suelo
 
+/*
+    Ciro: Cada nivel tiene su propio esquema de colores.
+    Esto hace que el juego sea más visual y sepas en qué nivel estás.
+
+    Cada color tiene dos tonos: oscuro (relleno) y claro (borde superior).
+*/
+const COLORES_NIVEL = [
+    { plataforma: '#00aa00', borde: '#00ff00', bordePantalla: '#00ff88' },  // Verde (nivel 1)
+    { plataforma: '#0066cc', borde: '#00aaff', bordePantalla: '#00aaff' },  // Azul (nivel 2)
+    { plataforma: '#aa00aa', borde: '#ff00ff', bordePantalla: '#ff00ff' },  // Magenta (nivel 3)
+    { plataforma: '#cc6600', borde: '#ff9900', bordePantalla: '#ff9900' },  // Naranja (nivel 4)
+    { plataforma: '#aa0000', borde: '#ff4444', bordePantalla: '#ff4444' },  // Rojo (nivel 5)
+    { plataforma: '#006666', borde: '#00cccc', bordePantalla: '#00cccc' },  // Cyan (nivel 6)
+    { plataforma: '#666600', borde: '#cccc00', bordePantalla: '#ffff00' },  // Amarillo (nivel 7)
+    { plataforma: '#663399', borde: '#9966ff', bordePantalla: '#9966ff' },  // Púrpura (nivel 8)
+];
+
 // ===========================================
-// PASO 3.5: Las plataformas
+// PASO 3.5: Las plataformas (generadas aleatoriamente)
 // ===========================================
 
 /*
-    Ciro: Esto es un ARRAY (o "lista" en Scratch).
-    Es como tener varios sprites de plataforma, cada uno con su posición.
+    Ciro: Ahora las plataformas se generan ALEATORIAMENTE en cada nivel.
+    Usamos "let" porque el array va a cambiar cuando pasemos de nivel.
 
-    Cada plataforma tiene: x, y, ancho, alto
-
-    En el Bubble Bobble original, las plataformas están distribuidas
-    de forma simétrica para que el juego sea justo.
+    La función generarPlataformas() crea una distribución nueva cada vez.
 */
 
-const plataformas = [
-    // Plataformas de abajo (nivel 1)
-    { x: 0, y: 380, ancho: 150, alto: 16 },
-    { x: 362, y: 380, ancho: 150, alto: 16 },
+let plataformas = [];
 
-    // Plataformas del medio (nivel 2)
-    { x: 80, y: 300, ancho: 150, alto: 16 },
-    { x: 282, y: 300, ancho: 150, alto: 16 },
+/*
+    Ciro: Esta función genera plataformas aleatorias para cada nivel.
 
-    // Plataformas de arriba (nivel 3)
-    { x: 0, y: 220, ancho: 150, alto: 16 },
-    { x: 362, y: 220, ancho: 150, alto: 16 },
+    Recibe el número de nivel y genera:
+    - Más plataformas en niveles bajos (más fácil)
+    - Menos plataformas en niveles altos (más difícil)
 
-    // Plataforma central superior
-    { x: 180, y: 140, ancho: 152, alto: 16 }
-];
+    Math.random() devuelve un número entre 0 y 1, lo usamos para
+    crear posiciones aleatorias.
+*/
+function generarPlataformas(nivel) {
+    plataformas = [];  // Limpiar las plataformas anteriores
+
+    // Calcular cuántas plataformas (menos en niveles altos, mínimo 6)
+    const cantidadBase = 12;
+    const cantidad = Math.max(6, cantidadBase - nivel);
+
+    // Alturas posibles para las plataformas (filas)
+    const alturasDisponibles = [50, 120, 200, 280, 360, 440];
+
+    // Para cada altura, decidir si ponemos plataformas y dónde
+    for (let i = 0; i < alturasDisponibles.length; i++) {
+        const y = alturasDisponibles[i];
+
+        // Decidir el patrón para esta fila (aleatorio)
+        const patron = Math.floor(Math.random() * 4);
+
+        if (patron === 0) {
+            // Patrón: dos plataformas en los lados
+            const ancho = 100 + Math.random() * 80;
+            plataformas.push({ x: 0, y: y, ancho: ancho, alto: 16 });
+            plataformas.push({ x: canvas.width - ancho, y: y, ancho: ancho, alto: 16 });
+        } else if (patron === 1) {
+            // Patrón: una plataforma central
+            const ancho = 120 + Math.random() * 100;
+            const x = (canvas.width - ancho) / 2;
+            plataformas.push({ x: x, y: y, ancho: ancho, alto: 16 });
+        } else if (patron === 2) {
+            // Patrón: dos plataformas en el centro
+            const ancho = 80 + Math.random() * 60;
+            const espacio = 40 + Math.random() * 40;
+            plataformas.push({ x: canvas.width / 2 - ancho - espacio / 2, y: y, ancho: ancho, alto: 16 });
+            plataformas.push({ x: canvas.width / 2 + espacio / 2, y: y, ancho: ancho, alto: 16 });
+        } else {
+            // Patrón: tres plataformas distribuidas
+            const ancho = 60 + Math.random() * 50;
+            plataformas.push({ x: 20, y: y, ancho: ancho, alto: 16 });
+            plataformas.push({ x: (canvas.width - ancho) / 2, y: y, ancho: ancho, alto: 16 });
+            plataformas.push({ x: canvas.width - ancho - 20, y: y, ancho: ancho, alto: 16 });
+        }
+    }
+
+    // En niveles altos, quitar algunas plataformas al azar para más dificultad
+    if (nivel > 2) {
+        const quitarCantidad = Math.min(nivel - 2, plataformas.length - 6);
+        for (let i = 0; i < quitarCantidad; i++) {
+            const indice = Math.floor(Math.random() * plataformas.length);
+            plataformas.splice(indice, 1);
+        }
+    }
+
+    console.log('Nivel ' + nivel + ': ' + plataformas.length + ' plataformas generadas');
+}
+
+// Generar las plataformas del primer nivel
+generarPlataformas(1);
 
 // ===========================================
 // PASO 3.6: Las burbujas
@@ -139,7 +284,7 @@ const TIPOS_FRUTAS = [
 
 /*
     Ciro: Usamos "let" en vez de "const" porque el array de enemigos
-    va a cambiar cuando creemos nuevas oleadas.
+    va a cambiar cuando creemos nuevas nivels.
     - const = no puede cambiar (constante)
     - let = puede cambiar (variable)
 */
@@ -151,8 +296,8 @@ const ENEMIGO_VELOCIDAD = 2;
 // Puntuación del jugador
 let puntuacion = 0;
 
-// Número de oleada actual (empieza en 1)
-let oleada = 1;
+// Número de nivel actual (empieza en 1)
+let nivel = 1;
 
 // Sistema de vidas
 /*
@@ -168,33 +313,43 @@ let vidas = 3;
 let estadoJuego = 'jugando';
 
 /*
-    Ciro: Esta FUNCIÓN crea una nueva oleada de enemigos.
+    Ciro: Esta FUNCIÓN crea un nuevo nivel con enemigos.
     Una función es como un "bloque personalizado" en Scratch.
-    La defines una vez y la puedes usar muchas veces.
 
-    Recibe un parámetro: cuántos enemigos crear.
+    Hace dos cosas:
+    1. Genera nuevas plataformas aleatorias
+    2. Crea los enemigos para el nivel
 */
-function crearOleada(cantidadEnemigos) {
-    // Limpiar el array de enemigos (por si acaso)
+function crearNivel(numeroNivel) {
+    // Generar nuevas plataformas aleatorias para este nivel
+    generarPlataformas(numeroNivel);
+
+    // Limpiar el array de enemigos
     enemigos = [];
 
-    // Posiciones posibles para aparecer (para que no aparezcan todos juntos)
-    const posicionesX = [50, 150, 250, 350, 450];
-    const posicionesY = [50, 120, 190];
+    // Calcular cuántos enemigos (más en niveles altos, máximo 8)
+    const cantidadEnemigos = Math.min(2 + numeroNivel, 8);
 
-    // Colores diferentes para cada oleada (más variedad visual)
+    // Colores diferentes para cada nivel (más variedad visual)
     const colores = ['#ff6666', '#ff66ff', '#66ffff', '#ffff66', '#ff9966'];
 
     for (let i = 0; i < cantidadEnemigos; i++) {
-        // Elegir posición semi-aleatoria
-        const posX = posicionesX[i % posicionesX.length];
-        const posY = posicionesY[i % posicionesY.length];
+        // Posición aleatoria en la parte superior de la pantalla
+        const posX = 50 + Math.random() * (canvas.width - 100);
+        const posY = 30 + Math.random() * 150;
 
         // Dirección aleatoria: -1 (izquierda) o 1 (derecha)
         const direccion = Math.random() < 0.5 ? -1 : 1;
 
-        // Velocidad aumenta un poco con cada oleada
-        const velocidad = ENEMIGO_VELOCIDAD + (oleada - 1) * 0.3;
+        // Velocidad aumenta un poco con cada nivel
+        const velocidad = ENEMIGO_VELOCIDAD + (numeroNivel - 1) * 0.3;
+
+        /*
+            Ciro: Algunos enemigos dan vida extra en vez de fruta.
+            Usamos Math.random() < 0.15 para que sea 15% de probabilidad.
+            Estos enemigos especiales tienen un corazón.
+        */
+        const daVidaExtra = Math.random() < 0.15;  // 15% de probabilidad
 
         // Crear el enemigo
         const nuevoEnemigo = {
@@ -205,18 +360,19 @@ function crearOleada(cantidadEnemigos) {
             velocidadX: velocidad * direccion,
             velocidadY: 0,
             estado: 'libre',
-            color: colores[(oleada - 1) % colores.length]  // Color según oleada
+            color: daVidaExtra ? '#ff69b4' : colores[(numeroNivel - 1) % colores.length],  // Rosa si da vida
+            daVida: daVidaExtra  // true = da vida, false = da fruta
         };
 
         // Agregar al array
         enemigos.push(nuevoEnemigo);
     }
 
-    console.log('¡Oleada ' + oleada + ' con ' + cantidadEnemigos + ' enemigos!');
+    console.log('¡Nivel ' + numeroNivel + ' con ' + cantidadEnemigos + ' enemigos!');
 }
 
-// Crear la primera oleada con 3 enemigos
-crearOleada(3);
+// Crear el primer nivel
+crearNivel(1);
 
 // ===========================================
 // PASO 4: Detectar teclas presionadas
@@ -288,7 +444,7 @@ function reiniciarJuego() {
 
     // Resetear variables del juego
     puntuacion = 0;
-    oleada = 1;
+    nivel = 1;
     vidas = 3;
     estadoJuego = 'jugando';
 
@@ -296,8 +452,8 @@ function reiniciarJuego() {
     burbujas.length = 0;
     frutas.length = 0;
 
-    // Crear primera oleada
-    crearOleada(3);
+    // Crear primer nivel (genera plataformas y enemigos)
+    crearNivel(1);
 
     console.log('¡Juego reiniciado!');
 }
@@ -386,11 +542,16 @@ function actualizar() {
     bub.x = bub.x + bub.velocidadX;
     bub.y = bub.y + bub.velocidadY;
 
-    // --- Colisión con el suelo ---
-    if (bub.y + bub.alto > SUELO_Y) {
-        bub.y = SUELO_Y - bub.alto;  // Ponerlo justo encima del suelo
-        bub.velocidadY = 0;           // Detener la caída
-        bub.enElSuelo = true;
+    // --- Envolver de abajo hacia arriba (wrap-around) ---
+    /*
+        Ciro: En vez de tener un suelo, cuando Bub cae por abajo
+        de la pantalla, reaparece por arriba. ¡Como en el Bubble Bobble original!
+
+        Esto se llama "wrap-around" o "envolver".
+    */
+    if (bub.y > canvas.height) {
+        bub.y = -bub.alto;  // Aparecer arriba (fuera de la pantalla, entrando)
+        // Mantiene la velocidad, sigue cayendo
     }
 
     // --- Colisión con plataformas ---
@@ -499,6 +660,9 @@ function actualizar() {
                         burbuja.tieneEnemigo = true;
                         burbuja.enemigo = enemigo;  // La burbuja sabe qué enemigo tiene
 
+                        // ¡Sonido de atrapar!
+                        sonidoAtrapar();
+
                         // ¡Ya atrapamos uno! Salir del bucle (una burbuja = un enemigo)
                         break;
                     }
@@ -546,10 +710,9 @@ function actualizar() {
             enemigo.x = enemigo.x + enemigo.velocidadX;
             enemigo.y = enemigo.y + enemigo.velocidadY;
 
-            // Colisión con el suelo
-            if (enemigo.y + enemigo.alto > SUELO_Y) {
-                enemigo.y = SUELO_Y - enemigo.alto;
-                enemigo.velocidadY = 0;
+            // Envolver de abajo hacia arriba (igual que Bub)
+            if (enemigo.y > canvas.height) {
+                enemigo.y = -enemigo.alto;
             }
 
             // Colisión con plataformas (igual que Bub)
@@ -576,6 +739,9 @@ function actualizar() {
             if (hayColision(bub, enemigo)) {
                 // Perder una vida
                 vidas = vidas - 1;
+
+                // ¡Sonido de daño!
+                sonidoPerderVida();
 
                 if (vidas <= 0) {
                     // ¡Game Over!
@@ -611,26 +777,35 @@ function actualizar() {
                 if (distanciaBub < BURBUJA_RADIO + 20) {
                     /*
                         Ciro: Cuando Bub toca una burbuja con enemigo:
-                        1. El enemigo muere
-                        2. Aparece una fruta en esa posición
-                        3. La fruta da puntos si Bub la recoge
+                        - Si el enemigo tiene daVida = true: ¡Vida extra!
+                        - Si no: Aparece una fruta
                     */
 
-                    // Crear una fruta en la posición de la burbuja
-                    // El tipo de fruta depende de la oleada (oleadas más altas = mejores frutas)
-                    const indiceFruta = Math.min(oleada - 1, TIPOS_FRUTAS.length - 1);
-                    const tipoFruta = TIPOS_FRUTAS[indiceFruta];
+                    // ¡Sonido de eliminar enemigo!
+                    sonidoEliminar();
 
-                    const nuevaFruta = {
-                        x: burbuja.x - 12,
-                        y: burbuja.y - 12,
-                        ancho: 24,
-                        alto: 24,
-                        velocidadY: 0,
-                        tipo: tipoFruta,
-                        edad: 0  // Para que desaparezca si no la recogen
-                    };
-                    frutas.push(nuevaFruta);
+                    if (enemigo.daVida) {
+                        // ¡Este enemigo da vida extra!
+                        vidas = vidas + 1;
+                        // También dar algunos puntos
+                        puntuacion = puntuacion + 500;
+                    } else {
+                        // Crear una fruta en la posición de la burbuja
+                        // El tipo de fruta depende del nivel (niveles más altos = mejores frutas)
+                        const indiceFruta = Math.min(nivel - 1, TIPOS_FRUTAS.length - 1);
+                        const tipoFruta = TIPOS_FRUTAS[indiceFruta];
+
+                        const nuevaFruta = {
+                            x: burbuja.x - 12,
+                            y: burbuja.y - 12,
+                            ancho: 24,
+                            alto: 24,
+                            velocidadY: 0,
+                            tipo: tipoFruta,
+                            edad: 0  // Para que desaparezca si no la recogen
+                        };
+                        frutas.push(nuevaFruta);
+                    }
 
                     // Eliminar la burbuja del array
                     const indiceBurbuja = burbujas.indexOf(burbuja);
@@ -661,10 +836,9 @@ function actualizar() {
         fruta.velocidadY = fruta.velocidadY + GRAVEDAD;
         fruta.y = fruta.y + fruta.velocidadY;
 
-        // Colisión con el suelo
-        if (fruta.y + fruta.alto > SUELO_Y) {
-            fruta.y = SUELO_Y - fruta.alto;
-            fruta.velocidadY = 0;
+        // Envolver de abajo hacia arriba (igual que Bub y enemigos)
+        if (fruta.y > canvas.height) {
+            fruta.y = -fruta.alto;
         }
 
         // Colisión con plataformas
@@ -695,25 +869,31 @@ function actualizar() {
         }
     }
 
-    // --- Verificar si completamos la oleada ---
+    // --- Verificar si completamos el nivel ---
     /*
         Ciro: Si el array de enemigos está vacío (length === 0),
-        significa que eliminamos a todos. ¡Nueva oleada!
+        significa que eliminamos a todos. ¡Siguiente nivel!
 
         Esto es como el bloque "si longitud de [lista] = 0" en Scratch.
     */
     if (enemigos.length === 0) {
-        oleada = oleada + 1;  // Siguiente oleada
+        nivel = nivel + 1;  // Siguiente nivel
 
-        // Cada oleada tiene más enemigos: oleada 1 = 3, oleada 2 = 4, oleada 3 = 5...
-        // Pero máximo 8 para que no sea imposible
-        const cantidadEnemigos = Math.min(2 + oleada, 8);
+        // Bonus por completar nivel
+        puntuacion = puntuacion + nivel * 100;
 
-        // Bonus por completar oleada
-        puntuacion = puntuacion + oleada * 50;
+        // Limpiar burbujas y frutas del nivel anterior
+        burbujas.length = 0;
+        // Las frutas las dejamos por si quiere recogerlas
 
-        // Crear la nueva oleada
-        crearOleada(cantidadEnemigos);
+        // Crear el nuevo nivel (nuevas plataformas aleatorias + enemigos)
+        crearNivel(nivel);
+
+        // Poner a Bub en una posición segura
+        bub.x = canvas.width / 2 - bub.ancho / 2;
+        bub.y = 400;
+        bub.velocidadX = 0;
+        bub.velocidadY = 0;
     }
 }
 
@@ -722,27 +902,36 @@ function actualizar() {
 // ===========================================
 
 function dibujar() {
+    // Obtener los colores del nivel actual
+    /*
+        Ciro: Usamos el operador % (módulo) para que los colores se repitan
+        si llegamos a un nivel mayor que la cantidad de colores disponibles.
+        Ej: nivel 9 usará los colores del nivel 1 (9 % 8 = 1)
+    */
+    const coloresActuales = COLORES_NIVEL[(nivel - 1) % COLORES_NIVEL.length];
+
     // Primero limpiamos todo (como "borrar todo" en Scratch)
     ctx.fillStyle = '#15138a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Dibujar el suelo
-    ctx.fillStyle = '#444444';
-    ctx.fillRect(0, SUELO_Y, canvas.width, canvas.height - SUELO_Y);
+    // Dibujar borde de pantalla con el color del nivel
+    ctx.strokeStyle = coloresActuales.bordePantalla;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
 
     // Dibujar las plataformas
     /*
         Ciro: Usamos otro "for" para dibujar CADA plataforma de la lista.
-        Todas se dibujan del mismo color, pero cada una en su posición.
+        Ahora usan el color del nivel actual.
     */
     for (let i = 0; i < plataformas.length; i++) {
         const plat = plataformas[i];
-        // Parte principal de la plataforma
-        ctx.fillStyle = '#00aa00';  // Verde oscuro
+        // Parte principal de la plataforma (color del nivel)
+        ctx.fillStyle = coloresActuales.plataforma;
         ctx.fillRect(plat.x, plat.y, plat.ancho, plat.alto);
 
         // Un borde más claro arriba para dar efecto 3D
-        ctx.fillStyle = '#00ff00';
+        ctx.fillStyle = coloresActuales.borde;
         ctx.fillRect(plat.x, plat.y, plat.ancho, 4);
     }
 
@@ -838,6 +1027,17 @@ function dibujar() {
             ctx.fillStyle = '#000000';
             ctx.fillRect(enemigo.x + 8, enemigo.y + 10, 3, 3);
             ctx.fillRect(enemigo.x + 18, enemigo.y + 10, 3, 3);
+
+            /*
+                Ciro: Si el enemigo da vida extra (daVida === true),
+                le dibujamos un corazón encima para que sepas que es especial.
+                ¡Estos enemigos son más valiosos porque te dan una vida!
+            */
+            if (enemigo.daVida) {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('♥', enemigo.x + 8, enemigo.y - 2);
+            }
         } else {
             // Enemigo atrapado: más transparente
             ctx.fillStyle = 'rgba(255, 100, 100, 0.7)';
@@ -847,17 +1047,24 @@ function dibujar() {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.fillRect(enemigo.x + 6, enemigo.y + 8, 6, 6);
             ctx.fillRect(enemigo.x + 16, enemigo.y + 8, 6, 6);
+
+            // Corazón también cuando está atrapado
+            if (enemigo.daVida) {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('♥', enemigo.x + 8, enemigo.y - 2);
+            }
         }
     }
 
-    // Dibujar puntuación y oleada
+    // Dibujar puntuación y nivel
     ctx.fillStyle = '#ffff00';  // Amarillo
     ctx.font = 'bold 20px Arial';
     ctx.fillText('Puntos: ' + puntuacion, 10, 25);
 
-    // Mostrar oleada actual
+    // Mostrar nivel actual
     ctx.fillStyle = '#00ffff';  // Cyan
-    ctx.fillText('Oleada: ' + oleada, 230, 25);
+    ctx.fillText('Nivel: ' + nivel, 230, 25);
 
     // Dibujar vidas (corazones)
     /*
@@ -871,10 +1078,10 @@ function dibujar() {
         ctx.fillText('♥', 400 + i * 28, 27);
     }
 
-    // Dibujar instrucciones
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '14px Arial';
-    ctx.fillText('Flechas: mover | Arriba: saltar | Espacio: burbuja', 10, 470);
+    // Dibujar instrucciones (ahora arriba, al lado de las vidas ya no caben)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = '12px Arial';
+    ctx.fillText('←→: mover | ↑: saltar | Espacio: burbuja', 10, canvas.height - 10);
 
     // --- Pantalla de Game Over ---
     /*
@@ -897,9 +1104,9 @@ function dibujar() {
         ctx.font = 'bold 24px Arial';
         ctx.fillText('Puntuación final: ' + puntuacion, canvas.width / 2, canvas.height / 2 + 10);
 
-        // Oleada alcanzada
+        // Nivel alcanzado
         ctx.fillStyle = '#00ffff';
-        ctx.fillText('Llegaste a la oleada ' + oleada, canvas.width / 2, canvas.height / 2 + 45);
+        ctx.fillText('Llegaste al nivel ' + nivel, canvas.width / 2, canvas.height / 2 + 45);
 
         // Instrucciones para reiniciar
         ctx.fillStyle = '#ffff00';
