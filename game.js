@@ -309,8 +309,97 @@ let nivel = 1;
 */
 let vidas = 3;
 
-// Estado del juego: 'jugando' o 'gameOver'
-let estadoJuego = 'jugando';
+// Estado del juego: 'inicio', 'jugando', 'gameOver' o 'ingresandoNombre'
+/*
+    Ciro: Ahora el juego tiene 4 estados posibles:
+    - 'inicio': Pantalla de título, esperando que pulses una tecla
+    - 'jugando': El juego en acción
+    - 'gameOver': Perdiste todas las vidas
+    - 'ingresandoNombre': Escribiendo tu nombre para el récord
+*/
+let estadoJuego = 'inicio';
+
+// ===========================================
+// Sistema de Récords (High Scores)
+// ===========================================
+
+/*
+    Ciro: Los récords se guardan en "localStorage", que es como
+    una memoria del navegador que NO se borra cuando cierras la página.
+
+    Guardamos un array con los 3 mejores puntajes, cada uno con:
+    - nombre: quién lo consiguió
+    - puntos: cuántos puntos hizo
+*/
+
+// Array con los 3 mejores récords
+let records = [];
+
+// Variables para cuando el jugador escribe su nombre
+let nombreJugador = '';
+let cursorVisible = true;  // Para hacer parpadear el cursor
+
+/*
+    Ciro: Esta función CARGA los récords guardados en el navegador.
+    localStorage guarda todo como TEXTO, así que usamos JSON.parse()
+    para convertir el texto de vuelta a un array de JavaScript.
+*/
+function cargarRecords() {
+    const datosGuardados = localStorage.getItem('bubbleBobbleRecords');
+    if (datosGuardados) {
+        records = JSON.parse(datosGuardados);
+    } else {
+        // Si no hay récords guardados, empezar con una lista vacía
+        records = [];
+    }
+}
+
+/*
+    Ciro: Esta función GUARDA los récords en el navegador.
+    JSON.stringify() convierte el array a texto para guardarlo.
+*/
+function guardarRecords() {
+    localStorage.setItem('bubbleBobbleRecords', JSON.stringify(records));
+}
+
+/*
+    Ciro: Esta función verifica si una puntuación entra en el top 3.
+    Devuelve true si es un nuevo récord, false si no.
+*/
+function esNuevoRecord(puntos) {
+    // Si hay menos de 3 récords, cualquier puntuación entra
+    if (records.length < 3) {
+        return true;
+    }
+    // Si hay 3 récords, verificar si supera al menor
+    const menorRecord = records[records.length - 1];
+    return puntos > menorRecord.puntos;
+}
+
+/*
+    Ciro: Esta función añade un nuevo récord a la lista.
+    Luego ordena la lista de mayor a menor y mantiene solo los 3 mejores.
+*/
+function agregarRecord(nombre, puntos) {
+    // Añadir el nuevo récord
+    records.push({ nombre: nombre, puntos: puntos });
+
+    // Ordenar de mayor a menor (el que tiene más puntos primero)
+    records.sort(function(a, b) {
+        return b.puntos - a.puntos;
+    });
+
+    // Mantener solo los 3 mejores
+    if (records.length > 3) {
+        records = records.slice(0, 3);
+    }
+
+    // Guardar en localStorage
+    guardarRecords();
+}
+
+// Cargar los récords al iniciar el juego
+cargarRecords();
 
 /*
     Ciro: Esta FUNCIÓN crea un nuevo nivel con enemigos.
@@ -389,6 +478,17 @@ const teclas = {
 
 // Cuando el jugador PRESIONA una tecla
 document.addEventListener('keydown', function(evento) {
+    /*
+        Ciro: Si estamos en la pantalla de inicio, cualquier tecla
+        comienza el juego. Usamos inicializarAudio() aquí porque
+        el navegador solo permite sonidos después de una interacción.
+    */
+    if (estadoJuego === 'inicio') {
+        inicializarAudio();
+        estadoJuego = 'jugando';
+        return;  // No procesar más esta tecla
+    }
+
     if (evento.key === 'ArrowLeft') {
         teclas.izquierda = true;
     }
@@ -484,8 +584,8 @@ function hayColision(rect1, rect2) {
 
 // Esta función se ejecuta muchas veces por segundo (como "por siempre" en Scratch)
 function actualizar() {
-    // Si es Game Over, no actualizar nada (el juego se congela)
-    if (estadoJuego === 'gameOver') {
+    // Si estamos en inicio o Game Over, no actualizar nada
+    if (estadoJuego === 'inicio' || estadoJuego === 'gameOver') {
         return;  // "return" sale de la función inmediatamente
     }
 
@@ -898,10 +998,188 @@ function actualizar() {
 }
 
 // ===========================================
+// PASO 5.5: Pantalla de inicio
+// ===========================================
+
+/*
+    Ciro: Esta variable cuenta los "frames" (imágenes) desde que empezó el juego.
+    La usamos para hacer animaciones en la pantalla de inicio.
+    60 frames = 1 segundo aproximadamente.
+*/
+let frameInicio = 0;
+
+/*
+    Ciro: Esta función dibuja la pantalla de título con estilo 8-bits.
+    Usamos formas simples (rectángulos, círculos) para crear los gráficos,
+    igual que hacían en los videojuegos antiguos.
+*/
+function dibujarPantallaInicio() {
+    frameInicio++;
+
+    // Fondo oscuro
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // --- Dibujar estrellas de fondo (efecto 8-bits) ---
+    /*
+        Ciro: Las estrellas titilan usando Math.sin() que crea un valor
+        que sube y baja como una ola. Cada estrella tiene un "offset"
+        diferente para que no titilen todas igual.
+    */
+    ctx.fillStyle = '#ffffff';
+    const estrellas = [
+        {x: 50, y: 80}, {x: 120, y: 40}, {x: 200, y: 90}, {x: 280, y: 30},
+        {x: 350, y: 70}, {x: 420, y: 50}, {x: 480, y: 85}, {x: 70, y: 150},
+        {x: 450, y: 140}, {x: 30, y: 200}, {x: 490, y: 200}, {x: 100, y: 280},
+        {x: 400, y: 300}, {x: 250, y: 400}, {x: 60, y: 420}, {x: 470, y: 440}
+    ];
+    for (let i = 0; i < estrellas.length; i++) {
+        const brillo = Math.sin(frameInicio * 0.1 + i) > 0 ? 1 : 0.3;
+        ctx.globalAlpha = brillo;
+        ctx.fillRect(estrellas[i].x, estrellas[i].y, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+
+    // --- Dibujar burbujas flotando ---
+    /*
+        Ciro: Las burbujas se mueven usando Math.sin() para hacer
+        un movimiento ondulante de arriba a abajo.
+    */
+    const burbujasDeco = [
+        {x: 80, y: 200, radio: 20},
+        {x: 430, y: 180, radio: 25},
+        {x: 150, y: 350, radio: 18},
+        {x: 380, y: 380, radio: 22},
+        {x: 60, y: 300, radio: 15},
+        {x: 460, y: 320, radio: 17}
+    ];
+    for (let i = 0; i < burbujasDeco.length; i++) {
+        const b = burbujasDeco[i];
+        const offsetY = Math.sin(frameInicio * 0.03 + i * 2) * 15;
+
+        ctx.beginPath();
+        ctx.arc(b.x, b.y + offsetY, b.radio, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(150, 230, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Brillito
+        ctx.beginPath();
+        ctx.arc(b.x - b.radio * 0.3, b.y + offsetY - b.radio * 0.3, b.radio * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fill();
+    }
+
+    // --- Dibujar a Bub (el protagonista) en el centro ---
+    /*
+        Ciro: Dibujamos a Bub más grande para que se vea bien.
+        Usamos rectángulos para darle ese aspecto de "pixels".
+    */
+    const bubX = 180;
+    const bubY = 280;
+    const bubEscala = 3;  // 3 veces más grande
+
+    // Cuerpo de Bub (verde)
+    ctx.fillStyle = '#88ff88';
+    ctx.fillRect(bubX, bubY, 32 * bubEscala, 32 * bubEscala);
+
+    // Ojos blancos
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(bubX + 6 * bubEscala, bubY + 8 * bubEscala, 8 * bubEscala, 8 * bubEscala);
+    ctx.fillRect(bubX + 18 * bubEscala, bubY + 8 * bubEscala, 8 * bubEscala, 8 * bubEscala);
+
+    // Pupilas
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(bubX + 10 * bubEscala, bubY + 10 * bubEscala, 4 * bubEscala, 4 * bubEscala);
+    ctx.fillRect(bubX + 22 * bubEscala, bubY + 10 * bubEscala, 4 * bubEscala, 4 * bubEscala);
+
+    // Boca sonriente (línea de rectángulos)
+    ctx.fillStyle = '#006600';
+    ctx.fillRect(bubX + 8 * bubEscala, bubY + 22 * bubEscala, 16 * bubEscala, 3 * bubEscala);
+
+    // --- Dibujar un enemigo al lado ---
+    const enemX = 340;
+    const enemY = 300;
+    const enemEscala = 2.5;
+
+    // Cuerpo del enemigo (rojo)
+    ctx.fillStyle = '#ff6666';
+    ctx.fillRect(enemX, enemY, 28 * enemEscala, 28 * enemEscala);
+
+    // Ojos
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(enemX + 6 * enemEscala, enemY + 8 * enemEscala, 6 * enemEscala, 6 * enemEscala);
+    ctx.fillRect(enemX + 16 * enemEscala, enemY + 8 * enemEscala, 6 * enemEscala, 6 * enemEscala);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(enemX + 8 * enemEscala, enemY + 10 * enemEscala, 3 * enemEscala, 3 * enemEscala);
+    ctx.fillRect(enemX + 18 * enemEscala, enemY + 10 * enemEscala, 3 * enemEscala, 3 * enemEscala);
+
+    // --- Título del juego ---
+    /*
+        Ciro: Usamos sombras para dar un efecto de profundidad al texto.
+        Primero dibujamos el texto en negro (sombra) y luego encima en color.
+    */
+
+    // Sombra del título
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 52px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('BUBBLE BOBBLE', canvas.width / 2 + 4, 100 + 4);
+
+    // Título principal (efecto arcoíris)
+    const coloresTitulo = ['#ff6666', '#ffaa66', '#ffff66', '#66ff66', '#66ffff', '#6666ff'];
+    ctx.fillStyle = '#66ffaa';
+    ctx.fillText('BUBBLE BOBBLE', canvas.width / 2, 100);
+
+    // Borde del título
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.strokeText('BUBBLE BOBBLE', canvas.width / 2, 100);
+
+    // --- Créditos ---
+    ctx.fillStyle = '#ffff00';
+    ctx.font = 'bold 24px Arial';
+    ctx.fillText('Por Ciro, Juanda y Claude', canvas.width / 2, 160);
+
+    // --- Texto "Pulsa una tecla" con parpadeo ---
+    /*
+        Ciro: Hacemos que el texto parpadee usando Math.sin().
+        Cuando el valor es mayor que 0, mostramos el texto.
+    */
+    if (Math.sin(frameInicio * 0.08) > -0.3) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText('- Pulsa cualquier tecla para empezar -', canvas.width / 2, 460);
+    }
+
+    // --- Borde decorativo estilo arcade ---
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    // Esquinas decorativas
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(6, 6, 12, 12);
+    ctx.fillRect(canvas.width - 18, 6, 12, 12);
+    ctx.fillRect(6, canvas.height - 18, 12, 12);
+    ctx.fillRect(canvas.width - 18, canvas.height - 18, 12, 12);
+
+    // Restaurar alineación
+    ctx.textAlign = 'left';
+}
+
+// ===========================================
 // PASO 6: Dibujar todo en pantalla
 // ===========================================
 
 function dibujar() {
+    // --- Pantalla de inicio ---
+    if (estadoJuego === 'inicio') {
+        dibujarPantallaInicio();
+        return;
+    }
     // Obtener los colores del nivel actual
     /*
         Ciro: Usamos el operador % (módulo) para que los colores se repitan
